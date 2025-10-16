@@ -29,34 +29,64 @@ class Ball:
             self.x += step_x
             self.y += step_y
 
-            # --- Wall collisions ---
+            # --- Wall collisions (top & bottom) ---
             if self.y <= 0:
                 self.y = 0
                 self.velocity_y *= -1
-                self.y += self.velocity_y * 0.1  # small offset to escape wall
                 if self.sound_manager:
                     self.sound_manager.play("wall_bounce")
 
             elif self.y + self.height >= self.screen_height:
                 self.y = self.screen_height - self.height
                 self.velocity_y *= -1
-                self.y += self.velocity_y * 0.1  # small offset to escape wall
                 if self.sound_manager:
                     self.sound_manager.play("wall_bounce")
 
-            # --- Paddle collisions ---
+            # --- Paddle collisions (player left, ai right) ---
             ball_rect = self.rect()
-            if ball_rect.colliderect(player.rect()):
-                self.x = player.x + player.width
+            player_rect = player.rect()
+            ai_rect = ai.rect()
+
+            # Player paddle
+            if ball_rect.colliderect(player_rect):
+                self.x = player.x + player.width  # move ball outside paddle
                 self.velocity_x = abs(self.velocity_x)
+
+                # adjust vertical direction based on hit location
+                offset = (self.y + self.height / 2) - (player.y + player.height / 2)
+                self.velocity_y += offset * 0.15
+                self._clamp_velocity()
+
                 if self.sound_manager:
                     self.sound_manager.play("paddle_hit")
 
-            elif ball_rect.colliderect(ai.rect()):
+            # AI paddle
+            elif ball_rect.colliderect(ai_rect):
                 self.x = ai.x - self.width
                 self.velocity_x = -abs(self.velocity_x)
+
+                # adjust vertical direction based on hit location
+                offset = (self.y + self.height / 2) - (ai.y + ai.height / 2)
+                self.velocity_y += offset * 0.15
+                self._clamp_velocity()
+
                 if self.sound_manager:
                     self.sound_manager.play("paddle_hit")
+
+            # --- Small position correction ---
+            # Push the ball slightly away from walls to prevent "sticking"
+            if self.y <= 0:
+                self.y = 0.5
+            elif self.y + self.height >= self.screen_height:
+                self.y = self.screen_height - self.height - 0.5
+
+    def _clamp_velocity(self):
+        """Keep ball speed within reasonable bounds."""
+        max_speed = 10
+        if self.velocity_y > max_speed:
+            self.velocity_y = max_speed
+        elif self.velocity_y < -max_speed:
+            self.velocity_y = -max_speed
 
     def reset(self):
         """Reset to center with randomized direction."""
